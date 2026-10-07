@@ -3,6 +3,534 @@ name: Build Crypto Live Chart APK
 
 on:
   workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create Android project
+        run: |
+          mkdir -p app/src/main/java/com/cryptolive/chart
+          mkdir -p app/src/main/assets
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "CryptoLiveChart"
+          include ":app"
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.cryptolive.chart'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId "com.cryptolive.chart"
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="Crypto Live Chart"
+                  android:usesCleartextTraffic="false">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          mkdir -p app/src/main/res/values
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:colorAccent">#4CAF50</item>
+                  <item name="android:navigationBarColor">#080c11</item>
+                  <item name="android:statusBarColor">#080c11</item>
+                  <item name="android:windowLightStatusBar">false</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/java/com/cryptolive/chart/MainActivity.java <<'EOF'
+          package com.cryptolive.chart;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  WebView web = new WebView(this);
+                  WebSettings settings = web.getSettings();
+
+                  settings.setJavaScriptEnabled(true);
+                  settings.setDomStorageEnabled(true);
+                  settings.setDatabaseEnabled(true);
+                  settings.setLoadWithOverviewMode(true);
+                  settings.setUseWideViewPort(true);
+
+                  web.setWebViewClient(new WebViewClient());
+                  web.loadUrl("file:///android_asset/index.html");
+
+                  setContentView(web);
+              }
+
+              @Override
+              public void onBackPressed() {
+                  setContentView(new WebView(this));
+                  super.onBackPressed();
+              }
+          }
+          EOF
+
+          cat > app/src/main/assets/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>Crypto Live Chart</title>
+
+          <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
+          <style>
+          *{box-sizing:border-box}
+          body{
+            margin:0;
+            background:#080c11;
+            color:#edf2f6;
+            font-family:Arial,sans-serif
+          }
+          .app{padding:12px}
+          h1{font-size:21px;margin:3px 0}
+          .sub{font-size:11px;color:#82909d}
+          .row{
+            display:flex;
+            gap:7px;
+            margin:10px 0;
+            flex-wrap:wrap
+          }
+          select,button{
+            background:#121a23;
+            color:#eee;
+            border:1px solid #293744;
+            border-radius:8px;
+            padding:9px;
+          }
+          .price{
+            background:#101720;
+            border:1px solid #202d39;
+            border-radius:13px;
+            padding:12px;
+            margin-bottom:9px
+          }
+          .big{font-size:30px;font-weight:bold}
+          .small{font-size:11px;color:#84919d}
+          .green{color:#5fe28a}
+          .red{color:#ff7078}
+          #chart{
+            height:480px;
+            border:1px solid #202d39;
+            border-radius:12px;
+            overflow:hidden
+          }
+          #rsi,#macd{
+            height:100px;
+            border:1px solid #202d39;
+            border-radius:12px;
+            margin-top:8px
+          }
+          #status{font-size:11px;color:#63df8b}
+          </style>
+          </head>
+
+          <body>
+          <div class="app">
+
+          <h1>Crypto Live Chart</h1>
+          <div class="sub">MEXC Live Market Data</div>
+
+          <div class="row">
+            <select id="coin">
+              <option value="KASUSDT">KAS / USDT</option>
+              <option value="BTCUSDT">BTC / USDT</option>
+              <option value="SUIUSDT">SUI / USDT</option>
+              <option value="TAOUSDT">TAO / USDT</option>
+              <option value="ETHUSDT">ETH / USDT</option>
+            </select>
+
+            <select id="tf">
+              <option value="Min1">1m</option>
+              <option value="Min5">5m</option>
+              <option value="Min15" selected>15m</option>
+              <option value="Min30">30m</option>
+              <option value="Min60">1H</option>
+              <option value="Hour4">4H</option>
+              <option value="Day1">1D</option>
+            </select>
+
+            <select id="currency">
+              <option value="PHP">🇵🇭 PHP</option>
+              <option value="USD">🇺🇸 USD</option>
+              <option value="EUR">🇪🇺 EUR</option>
+              <option value="GBP">🇬🇧 GBP</option>
+              <option value="JPY">🇯🇵 JPY</option>
+              <option value="AUD">🇦🇺 AUD</option>
+              <option value="CAD">🇨🇦 CAD</option>
+              <option value="SGD">🇸🇬 SGD</option>
+              <option value="HKD">🇭🇰 HKD</option>
+              <option value="CHF">🇨🇭 CHF</option>
+            </select>
+          </div>
+
+          <div class="price">
+            <div class="big">
+              <span id="cur">₱</span><span id="price">—</span>
+              <span id="change" class="small"></span>
+            </div>
+
+            <div class="small">
+              <span id="coinname">KAS</span>/USDT ·
+              MEXC ·
+              <span id="status">CONNECTING...</span>
+            </div>
+          </div>
+
+          <div id="chart"></div>
+          <div id="rsi"></div>
+          <div id="macd"></div>
+
+          </div>
+
+          <script>
+          const $=x=>document.getElementById(x);
+
+          let candles=[];
+          let chart;
+          let candleSeries;
+          let volumeSeries;
+          let maSeries;
+
+          const currencySymbols={
+            PHP:"₱",USD:"$",EUR:"€",GBP:"£",
+            JPY:"¥",AUD:"A$",CAD:"C$",
+            SGD:"S$",HKD:"HK$",CHF:"CHF "
+          };
+
+          let fx={PHP:58.5,USD:1,EUR:0.85,GBP:0.74,
+                  JPY:150,AUD:1.52,CAD:1.38,
+                  SGD:1.29,HKD:7.8,CHF:0.80};
+
+          function intervalSeconds(v){
+            if(v==="Min1")return 60;
+            if(v==="Min5")return 300;
+            if(v==="Min15")return 900;
+            if(v==="Min30")return 1800;
+            if(v==="Min60")return 3600;
+            if(v==="Hour4")return 14400;
+            return 86400;
+          }
+
+          function makeChart(){
+            $("chart").innerHTML="";
+
+            chart=LightweightCharts.createChart(
+              $("chart"),
+              {
+                layout:{
+                  background:{color:"#080c11"},
+                  textColor:"#9aa7b2"
+                },
+                grid:{
+                  vertLines:{color:"#131b23"},
+                  horzLines:{color:"#131b23"}
+                },
+                crosshair:{mode:1},
+                rightPriceScale:{borderColor:"#27333d"},
+                timeScale:{
+                  borderColor:"#27333d",
+                  timeVisible:true
+                }
+              }
+            );
+
+            candleSeries=chart.addCandlestickSeries({
+              upColor:"#26a269",
+              downColor:"#e5535d",
+              borderVisible:false,
+              wickUpColor:"#26a269",
+              wickDownColor:"#e5535d"
+            });
+
+            volumeSeries=chart.addHistogramSeries({
+              priceFormat:{type:"volume"},
+              priceScaleId:""
+            });
+
+            volumeSeries.priceScale().applyOptions({
+              scaleMargins:{top:0.80,bottom:0}
+            });
+
+            maSeries=chart.addLineSeries({
+              color:"#f1c75b",
+              lineWidth:2,
+              priceLineVisible:false
+            });
+
+            new ResizeObserver(()=>{
+              chart.applyOptions({
+                width:$("chart").clientWidth,
+                height:$("chart").clientHeight
+              });
+            }).observe($("chart"));
+          }
+
+          function sma(period){
+            let result=[];
+            for(let i=period-1;i<candles.length;i++){
+              let sum=0;
+              for(let j=i-period+1;j<=i;j++)
+                sum+=candles[j].close;
+              result.push({
+                time:candles[i].time,
+                value:sum/period
+              });
+            }
+            return result;
+          }
+
+          function rsi(period=14){
+            let out=[];
+            if(candles.length<=period)return out;
+
+            let gains=0,losses=0;
+
+            for(let i=1;i<=period;i++){
+              let d=candles[i].close-candles[i-1].close;
+              if(d>=0)gains+=d;
+              else losses-=d;
+            }
+
+            let avgGain=gains/period;
+            let avgLoss=losses/period;
+
+            for(let i=period;i<candles.length;i++){
+              if(i>period){
+                let d=candles[i].close-candles[i-1].close;
+                let g=d>0?d:0;
+                let l=d<0?-d:0;
+                avgGain=(avgGain*(period-1)+g)/period;
+                avgLoss=(avgLoss*(period-1)+l)/period;
+              }
+
+              let rs=avgLoss===0?100:avgGain/avgLoss;
+              let val=100-(100/(1+rs));
+
+              out.push({time:candles[i].time,value:val});
+            }
+            return out;
+          }
+
+          async function loadFX(){
+            try{
+              let r=await fetch(
+                "https://open.er-api.com/v6/latest/USD",
+                {cache:"no-store"}
+              );
+              let d=await r.json();
+
+              if(d.rates){
+                for(let c in fx){
+                  if(d.rates[c])fx[c]=d.rates[c];
+                }
+              }
+            }catch(e){}
+          }
+
+          async function load(){
+            const symbol=$("coin").value;
+            const interval=$("tf").value;
+
+            $("status").textContent="LOADING...";
+
+            try{
+              const url=
+                "https://api.mexc.com/api/v3/klines"+
+                "?symbol="+symbol+
+                "&interval="+interval+
+                "&limit=500";
+
+              const r=await fetch(url,{cache:"no-store"});
+
+              if(!r.ok)throw new Error("MEXC");
+
+              const data=await r.json();
+
+              candles=data.map(x=>({
+                time:Math.floor(Number(x[0])/1000),
+                open:Number(x[1]),
+                high:Number(x[2]),
+                low:Number(x[3]),
+                close:Number(x[4]),
+                volume:Number(x[5])
+              }));
+
+              makeChart();
+
+              candleSeries.setData(candles);
+
+              volumeSeries.setData(
+                candles.map(x=>({
+                  time:x.time,
+                  value:x.volume,
+                  color:x.close>=x.open?
+                    "rgba(38,162,105,.45)":
+                    "rgba(229,83,93,.45)"
+                }))
+              );
+
+              maSeries.setData(sma(20));
+
+              chart.timeScale().fitContent();
+
+              $("status").textContent="● LIVE";
+              await ticker();
+
+            }catch(e){
+              $("status").textContent="MEXC DATA ERROR";
+            }
+          }
+
+          async function ticker(){
+            try{
+              const symbol=$("coin").value;
+
+              const r=await fetch(
+                "https://api.mexc.com/api/v3/ticker/24hr?symbol="+symbol,
+                {cache:"no-store"}
+              );
+
+              const d=await r.json();
+
+              const usd=Number(d.lastPrice);
+              const cur=$("currency").value;
+              const value=usd*fx[cur];
+
+              $("price").textContent=
+                value.toLocaleString(
+                  "en-US",
+                  {minimumFractionDigits:4,maximumFractionDigits:4}
+                );
+
+              $("cur").textContent=currencySymbols[cur];
+
+              const ch=Number(d.priceChangePercent);
+
+              $("change").textContent=
+                (ch>=0?"+":"")+ch.toFixed(2)+"%";
+
+              $("change").className=ch>=0?"green":"red";
+
+              $("coinname").textContent=
+                symbol.replace("USDT","");
+
+            }catch(e){}
+          }
+
+          $("coin").onchange=load;
+          $("tf").onchange=load;
+
+          $("currency").onchange=async()=>{
+            await loadFX();
+            ticker();
+          };
+
+          loadFX();
+          load();
+
+          setInterval(ticker,10000);
+          setInterval(load,60000);
+          </script>
+
+          </body>
+          </html>
+          EOF
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Gradle
+        run: |
+          gradle wrapper --gradle-version 8.9
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CryptoLiveChart-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+On Wed, 7 Oct 2026, 8:26 am John Michael Ceñidoza <johnmichaelhcenidoza07@gmail.com> wrote:
+name: Build Crypto Live Chart APK
+
+on:
+  workflow_dispatch:
   push:
     branches:
       - main
